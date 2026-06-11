@@ -132,7 +132,7 @@
               <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
                 <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="previewAvatar(event)">
                 <label class="btn-change-photo" for="avatarInput" style="display:inline-block;">📷 Ganti Foto</label>
-                <button type="button" class="btn btn-outline btn-sm" onclick="showSellerModal()" id="sellerActionBtn">🏪 Daftar Sebagai Penjual</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="handleSellerAction()" id="sellerActionBtn">🏪 Daftar Sebagai Penjual</button>
               </div>
             </div>
           </div>
@@ -295,6 +295,8 @@
 const AUTH_USER = @json($currentUser ?? []);
 const PROFILE_UPDATE_URL = '{{ route('profile.update') }}';
 const PROFILE_PASSWORD_URL = '{{ route('profile.password') }}';
+const SELLER_UPGRADE_URL = '{{ route('seller.upgrade') }}';
+const SELLER_PROFILE_URL = '{{ route('seller.profile') }}';
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
 function normalizeUser(user = {}) {
@@ -309,7 +311,17 @@ function normalizeUser(user = {}) {
     avatar: user.avatar || '',
     birthdate: user.birth_date || user.birthdate || '',
     gender: user.gender || '',
+    role: user.role || '',
+    seller_name: user.seller_name || '',
+    seller_description: user.seller_description || '',
+    seller_phone: user.seller_phone || '',
+    seller_address: user.seller_address || '',
+    seller_revenue: user.seller_revenue || 0,
   };
+}
+
+function isSellerUser(user = {}) {
+  return ['penjual', 'seller', 'seller_store'].includes(String(user.role || '').toLowerCase());
 }
 
 function getUser() {
@@ -378,10 +390,52 @@ function loadUserData() {
   document.getElementById('sbUsernameEl').textContent = u.username || '';
   const sellerBtn = document.getElementById('sellerActionBtn');
   if (sellerBtn) {
-    sellerBtn.textContent = u.role === 'penjual' ? '🏪 Lihat Profil Penjual' : '🏪 Daftar Sebagai Penjual';
-    sellerBtn.onclick = u.role === 'penjual' ? () => window.location.href = '{{ route('seller.profile') }}' : showSellerModal;
+    const seller = isSellerUser(u);
+    sellerBtn.textContent = seller ? '🏪 Lihat Profil Penjual' : '🏪 Daftar Sebagai Penjual';
+    sellerBtn.onclick = () => handleSellerAction();
   }
   renderAvatar(u);
+}
+
+async function handleSellerAction() {
+  const u = getUser();
+  if (isSellerUser(u)) {
+    window.location.href = SELLER_PROFILE_URL;
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('_token', CSRF_TOKEN);
+    formData.append('seller_name', (u.nama || u.name || '').trim());
+    formData.append('seller_description', 'Toko resmi SeaBiz');
+    formData.append('seller_phone', u.phone || '');
+    formData.append('seller_address', '');
+
+    const res = await fetch(SELLER_UPGRADE_URL, {
+      method: 'POST',
+      headers: { 'X-CSRF-TOKEN': CSRF_TOKEN },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      throw new Error('Gagal mendaftarkan akun sebagai penjual.');
+    }
+
+    setUser({
+      ...u,
+      role: 'penjual',
+      seller_name: (u.nama || u.name || '').trim(),
+      seller_description: 'Toko resmi SeaBiz',
+      seller_phone: u.phone || '',
+      seller_address: '',
+      seller_revenue: 0,
+    });
+
+    window.location.href = SELLER_PROFILE_URL;
+  } catch (err) {
+    showToast(err.message || 'Gagal mendaftarkan akun sebagai penjual.', 'error');
+  }
 }
 
 function previewAvatar(event) {

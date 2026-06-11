@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class OrderController extends Controller
@@ -80,34 +82,61 @@ class OrderController extends Controller
             'total' => ['required', 'integer', 'min:0'],
         ]);
 
-        $order = Auth::user()->orders()->create([
-            'order_number' => 'ORD-' . now()->format('YmdHis') . '-' . Str::upper(Str::random(4)),
-            'store_name' => 'SeaBiz',
-            'store_city' => $payload['address']['kota'] ?? 'Indonesia',
-            'status' => 'belum_dibayar',
-            'payment_method' => $payload['payment_method'],
-            'voucher_code' => $payload['voucher_code'] ?? null,
-            'discount_amount' => (int) ($payload['discount_amount'] ?? 0),
-            'shipping_fee' => (int) ($payload['shipping_fee'] ?? 0),
-            'subtotal' => (int) $payload['subtotal'],
-            'total' => (int) $payload['total'],
-            'shipping_name' => $payload['address']['nama'],
-            'shipping_phone' => $payload['address']['telepon'],
-            'shipping_address' => $payload['address']['alamat'],
-            'shipping_city' => $payload['address']['kota'],
-            'shipping_district' => $payload['address']['kecamatan'] ?? null,
-            'shipping_note' => $payload['address']['catatan'] ?? null,
-        ]);
-
-        foreach ($payload['items'] as $item) {
-            $order->items()->create([
-                'name' => $item['nama'],
-                'qty' => (int) $item['qty'],
-                'price' => (int) $item['harga'],
-                'unit' => $item['satuan'] ?? 'pcs',
-                'image' => $item['img'] ?? null,
+        $order = DB::transaction(function () use ($payload): Order {
+            $order = Auth::user()->orders()->create([
+                'order_number' => 'ORD-' . now()->format('YmdHis') . '-' . Str::upper(Str::random(4)),
+                'store_name' => 'SeaBiz',
+                'store_city' => $payload['address']['kota'] ?? 'Indonesia',
+                'status' => 'belum_dibayar',
+                'payment_method' => $payload['payment_method'],
+                'voucher_code' => $payload['voucher_code'] ?? null,
+                'discount_amount' => (int) ($payload['discount_amount'] ?? 0),
+                'shipping_fee' => (int) ($payload['shipping_fee'] ?? 0),
+                'subtotal' => (int) $payload['subtotal'],
+                'total' => (int) $payload['total'],
+                'shipping_name' => $payload['address']['nama'],
+                'shipping_phone' => $payload['address']['telepon'],
+                'shipping_address' => $payload['address']['alamat'],
+                'shipping_city' => $payload['address']['kota'],
+                'shipping_district' => $payload['address']['kecamatan'] ?? null,
+                'shipping_note' => $payload['address']['catatan'] ?? null,
             ]);
-        }
+
+            foreach ($payload['items'] as $item) {
+                $order->items()->create([
+                    'name' => $item['nama'],
+                    'qty' => (int) $item['qty'],
+                    'price' => (int) $item['harga'],
+                    'unit' => $item['satuan'] ?? 'pcs',
+                    'image' => $item['img'] ?? null,
+                ]);
+
+                $productId = $item['product_id'] ?? $item['id'] ?? null;
+                $product = $productId ? Product::find($productId) : null;
+
+                if (! $product && ! empty($item['nama'])) {
+                    $product = Product::where('name', $item['nama'])->first();
+                }
+
+                if ($product) {
+                    $qty = (int) $item['qty'];
+                    if ($product->stock < $qty) {
+                        throw new \RuntimeException('Stok produk ' . $product->name . ' tidak mencukupi.');
+                    }
+
+                    $product->decrement('stock', $qty);
+                    $product->refresh();
+
+                    $seller = $product->user;
+                    if ($seller) {
+                        $seller->seller_revenue = (int) $seller->seller_revenue + ((int) $item['harga'] * $qty);
+                        $seller->save();
+                    }
+                }
+            }
+
+            return $order;
+        });
 
         return response()->json([
             'success' => true,

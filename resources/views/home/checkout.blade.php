@@ -599,6 +599,7 @@ function placeOrder() {
   const totalBayar = Math.max(0, subtotal + ONGKIR - discount);
   const orderPayload = {
     items: cart.map(item => ({
+      product_id: item.product_id || item.id || null,
       nama: item.nama,
       qty: item.qty,
       harga: item.harga,

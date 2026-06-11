@@ -119,6 +119,152 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc;color:#0f172a;font-size:
 @endsection
 
 @section('content')
+@php
+  $products = \App\Models\Product::query()
+      ->where('is_active', true)
+      ->where('stock', '>', 0)
+      ->latest()
+      ->get();
+
+  $defaultProducts = [
+      [
+          'id' => 1,
+          'kat' => 1,
+          'nama' => 'Ikan Kakap Merah',
+          'penjual' => 'UMKM Sukamaju',
+          'kota' => 'Surabaya',
+          'rating' => 4.8,
+          'terjual' => 1200,
+          'harga' => 20000,
+          'satuan' => 'kg',
+          'stok' => 50,
+          'badge' => 'Segar',
+          'img' => asset('assets/img/ikankakap.jpg'),
+      ],
+      [
+          'id' => 2,
+          'kat' => 3,
+          'nama' => 'Udang Vaname',
+          'penjual' => 'UMKM Sukamaju',
+          'kota' => 'Sidoarjo',
+          'rating' => 4.9,
+          'terjual' => 340,
+          'harga' => 30000,
+          'satuan' => 'kg',
+          'stok' => 20,
+          'badge' => 'Segar',
+          'img' => asset('assets/img/udang vaname.jpg'),
+      ],
+      [
+          'id' => 3,
+          'kat' => 3,
+          'nama' => 'Kepiting Rajungan',
+          'penjual' => 'Kec. Pesisir Barat',
+          'kota' => 'Banten',
+          'rating' => 4.9,
+          'terjual' => 210,
+          'harga' => 10000,
+          'satuan' => 'kg',
+          'stok' => 15,
+          'badge' => 'Jumbo',
+          'img' => asset('assets/img/kepiting rajungan.jpg'),
+      ],
+      [
+          'id' => 4,
+          'kat' => 2,
+          'nama' => 'Cumi-cumi Beku',
+          'penjual' => 'Kec. Pesisir Barat',
+          'kota' => 'Banten',
+          'rating' => 4.6,
+          'terjual' => 890,
+          'harga' => 10000,
+          'satuan' => 'kg',
+          'stok' => 200,
+          'badge' => 'Beku',
+          'img' => asset('assets/img/cumibeku.jpg'),
+      ],
+      [
+          'id' => 5,
+          'kat' => 4,
+          'nama' => 'Ikan Bandeng Presto',
+          'penjual' => 'UMKM Sukamaju',
+          'kota' => 'Surabaya',
+          'rating' => 4.8,
+          'terjual' => 810,
+          'harga' => 20000,
+          'satuan' => 'pcs',
+          'stok' => 80,
+          'badge' => 'Olahan',
+          'img' => asset('assets/img/ikanbandengpresto.jpg'),
+      ],
+      [
+          'id' => 6,
+          'kat' => 4,
+          'nama' => 'Kerupuk Ikan Tenggiri',
+          'penjual' => 'UMKM Melati',
+          'kota' => 'Jakarta',
+          'rating' => 4.4,
+          'terjual' => 560,
+          'harga' => 10000,
+          'satuan' => 'pak',
+          'stok' => 120,
+          'badge' => 'Olahan',
+          'img' => asset('assets/img/kerupuk ikan tenggiri.png'),
+      ],
+      [
+          'id' => 7,
+          'kat' => 3,
+          'nama' => 'Lobster Mutiara',
+          'penjual' => 'UMKM Melati',
+          'kota' => 'Jakarta',
+          'rating' => 4.3,
+          'terjual' => 480,
+          'harga' => 80000,
+          'satuan' => 'ekor',
+          'stok' => 10,
+          'badge' => 'Premium',
+          'img' => asset('assets/img/lobstermutiara.jpg'),
+      ],
+      [
+          'id' => 8,
+          'kat' => 1,
+          'nama' => 'Ikan Tuna Segar',
+          'penjual' => 'UMKM Nelayan',
+          'kota' => 'Surabaya',
+          'rating' => 4.7,
+          'terjual' => 650,
+          'harga' => 25000,
+          'satuan' => 'kg',
+          'stok' => 30,
+          'badge' => 'Segar',
+          'img' => asset('assets/img/ikantunasegar.jpg'),
+      ],
+  ];
+
+  $productsData = collect($defaultProducts)
+      ->merge($products->map(function ($product) {
+          $seller = $product->relationLoaded('user') ? $product->user : null;
+          $sellerName = $seller?->seller_name ?: $seller?->name ?: 'SeaBiz';
+          $sellerAddress = $seller?->seller_address ?: '';
+
+          return [
+              'id' => $product->id,
+              'kat' => 1,
+              'nama' => $product->name,
+              'penjual' => $sellerName,
+              'kota' => $sellerAddress ? str_replace(["\n", "\r"], ' ', $sellerAddress) : 'Indonesia',
+              'rating' => 4.8,
+              'terjual' => 0,
+              'harga' => (int) $product->price,
+              'satuan' => $product->unit,
+              'stok' => (int) $product->stock,
+              'badge' => $product->stock > 10 ? 'Segar' : 'Baru',
+              'img' => $product->image ? asset('storage/' . $product->image) : asset('assets/img/nelayan.jpg'),
+          ];
+      })->values())
+      ->values()
+      ->all();
+@endphp
 <!-- MKT HEADER -->
 <div class="mkt-header">
   <div class="mkt-header-inner">
@@ -249,16 +395,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc;color:#0f172a;font-size:
 </div>
 
 <script>
-const PRODUCTS_MKT = [
-  {id:1,kat:1,nama:'Ikan Kakap Merah',penjual:'UMKM Sukamaju',kota:'Surabaya',rating:4.8,terjual:1200,harga:20000,satuan:'kg',stok:50,badge:'Segar',img:'{{ asset('assets/img/ikankakap.jpg') }}'},
-  {id:2,kat:3,nama:'Udang Vaname',penjual:'UMKM Sukamaju',kota:'Sidoarjo',rating:4.9,terjual:340,harga:30000,satuan:'kg',stok:20,badge:'Segar',img:'{{ asset('assets/img/udang vaname.jpg') }}'},
-  {id:3,kat:3,nama:'Kepiting Rajungan',penjual:'Kec. Pesisir Barat',kota:'Banten',rating:4.9,terjual:210,harga:10000,satuan:'kg',stok:15,badge:'Jumbo',img:'{{ asset('assets/img/kepiting rajungan.jpg') }}'},
-  {id:4,kat:2,nama:'Cumi-cumi Beku',penjual:'Kec. Pesisir Barat',kota:'Banten',rating:4.6,terjual:890,harga:10000,satuan:'kg',stok:200,badge:'Beku',img:'{{ asset('assets/img/cumibeku.jpg') }}'},
-  {id:5,kat:4,nama:'Ikan Bandeng Presto',penjual:'UMKM Sukamaju',kota:'Surabaya',rating:4.8,terjual:810,harga:20000,satuan:'pcs',stok:80,badge:'Olahan',img:'{{ asset('assets/img/ikanbandengpresto.jpg') }}'},
-  {id:6,kat:4,nama:'Kerupuk Ikan Tenggiri',penjual:'UMKM Melati',kota:'Jakarta',rating:4.4,terjual:560,harga:10000,satuan:'pak',stok:120,badge:'Olahan',img:'{{ asset('assets/img/kerupuk ikan tenggiri.png') }}'},
-  {id:7,kat:3,nama:'Lobster Mutiara',penjual:'UMKM Melati',kota:'Jakarta',rating:4.3,terjual:480,harga:80000,satuan:'ekor',stok:10,badge:'Premium',img:'{{ asset('assets/img/lobstermutiara.jpg') }}'},
-  {id:8,kat:1,nama:'Ikan Tuna Segar',penjual:'UMKM Nelayan',kota:'Surabaya',rating:4.7,terjual:650,harga:25000,satuan:'kg',stok:30,badge:'Segar',img:'{{ asset('assets/img/ikantunasegar.jpg') }}'}
-];
+const PRODUCTS_MKT = @json($productsData);
 
 const BADGE_CLASS = {Segar:'badge-segar','Best Seller':'badge-hot',Populer:'badge-gold',Premium:'badge-purple',Import:'badge-navy',Terlaris:'badge-hot',Beku:'badge-navy',Jumbo:'badge-purple',Olahan:'badge-gold',Baru:'badge-segar'};
 const rp = n => 'Rp ' + Number(n).toLocaleString('id-ID');
